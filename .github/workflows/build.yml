@@ -162,5 +162,6 @@ jobs:
           License: GPL-3.0. Complete source: this repository plus the upstream commit and patches/0001-badusb-autorun.patch. See NOTICE.
           EOF
           gh release create "$TAG" esp32s3-bsod-dongle.zip \
+            --repo "$GITHUB_REPOSITORY" \
             --title "ESP32-S3 BSOD dongle $TAG" \
             --notes-file release_notes.md
