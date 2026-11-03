@@ -53,10 +53,10 @@ index f91a192..5adaf1a 100644
  #ifdef CONFIG_BUILD_CONFIG_TEMPLATE
      if (strcmp(CONFIG_BUILD_CONFIG_TEMPLATE, "somethingsomething") == 0) {
 diff --git a/main/managers/badusb_manager.c b/main/managers/badusb_manager.c
-index a3120aa..68683a8 100644
+index a3120aa..93df538 100644
 --- a/main/managers/badusb_manager.c
 +++ b/main/managers/badusb_manager.c
-@@ -999,6 +999,38 @@ esp_err_t badusb_manager_execute_buffer(char *buf, size_t len) {
+@@ -999,6 +999,40 @@ esp_err_t badusb_manager_execute_buffer(char *buf, size_t len) {
      return ESP_OK;
  }
  
@@ -73,6 +73,8 @@ index a3120aa..68683a8 100644
 +                       "DELAY 3000\n"
 +                       "GUI r\n"
 +                       "DELAY 500\n"
++                       "CTRL SPACE\n"
++                       "DELAY 300\n"
 +                       "STRING %s\n"
 +                       "DELAY 200\n"
 +                       "ENTER\n",
