@@ -97,13 +97,13 @@ The page itself is in [`web/index.html`](web/index.html). It is standalone HTML/
 The patch adds an opt-in `CONFIG_BADUSB_AUTORUN` and `CONFIG_BADUSB_AUTORUN_COMMAND` to GhostESP. At boot, after the settings and USB stack are initialized, `badusb_manager_autorun()` builds a small DuckyScript and starts the existing BadUSB executor. The sequence is:
 
 ```text
-DELAY 4000
-GUI r
-DELAY 6000
+DELAY 5000
 GUI r
 DELAY 2000
+GUI r
+DELAY 800
 STRING msedge --kiosk <PAYLOAD_URL>
-DELAY 500
+DELAY 300
 ENTER
 ```
 

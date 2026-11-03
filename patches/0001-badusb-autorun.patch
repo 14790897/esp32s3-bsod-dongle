@@ -70,13 +70,13 @@ index a3120aa..ee84c41 100644
 +
 +    char script[512];
 +    int len = snprintf(script, sizeof(script),
-+                       "DELAY 4000\n"
-+                       "GUI r\n"
-+                       "DELAY 6000\n"
++                       "DELAY 5000\n"
 +                       "GUI r\n"
 +                       "DELAY 2000\n"
++                       "GUI r\n"
++                       "DELAY 800\n"
 +                       "STRING %s\n"
-+                       "DELAY 500\n"
++                       "DELAY 300\n"
 +                       "ENTER\n",
 +                       command);
 +    if (len <= 0 || len >= (int)sizeof(script)) {
