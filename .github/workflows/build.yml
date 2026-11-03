@@ -1,0 +1,166 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      payload_url:
+        description: URL opened by msedge --kiosk
+        required: false
+        default: 'https://ghost-esp-demo.vercel.app/'
+      release:
+        description: Create a GitHub Release after the build
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  GHOSTESP_COMMIT: 4f4e1cfe97a37b69f8bc20a5f4b028c1b028aa0f
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PAYLOAD_URL: ${{ inputs.payload_url || vars.PAYLOAD_URL || 'https://ghost-esp-demo.vercel.app/' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - uses: actions/cache@v4
+        id: cache-idf
+        with:
+          path: |
+            ~/esp-idf
+            ~/.espressif
+          key: esp-idf-v6.1-${{ runner.os }}-v1
+
+      - name: Install ESP-IDF dependencies
+        if: steps.cache-idf.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget git flex bison gperf python3-pip python3-setuptools cmake ninja-build ccache libffi-dev libssl-dev dfu-util
+
+      - name: Install ESP-IDF v6.1
+        if: steps.cache-idf.outputs.cache-hit != 'true'
+        run: |
+          git clone -b v6.1 --depth 1 --recursive https://github.com/espressif/esp-idf.git ~/esp-idf
+          ~/esp-idf/install.sh
+
+      - name: Repair cached ESP-IDF Python environment if broken
+        if: steps.cache-idf.outputs.cache-hit == 'true'
+        run: |
+          IDF_VER=$(sed -nE 's/^#define ESP_IDF_VERSION_(MAJOR|MINOR) +([0-9]+)/\2/p' \
+            ~/esp-idf/components/esp_common/include/esp_idf_version.h | paste -sd.)
+          PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          VENV="$HOME/.espressif/python_env/idf${IDF_VER}_py${PY_VER}_env"
+          if [ ! -x "$VENV/bin/python" ]; then
+            echo "Cached ESP-IDF Python env is missing or broken; recreating..."
+            rm -rf "$VENV"
+            ~/esp-idf/install.sh
+          fi
+
+      - name: Set up ESP-IDF environment
+        run: |
+          . ~/esp-idf/export.sh
+          echo "IDF_TARGET=esp32s3" >> "$GITHUB_ENV"
+
+      - name: Patch ESP-IDF gdbstub compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          idf = Path.home() / "esp-idf"
+
+          gdbstub = idf / "components/esp_gdbstub/src/gdbstub.c"
+          source = gdbstub.read_text(encoding="utf-8")
+          helper_guard = re.compile(
+              r"#if\s*\(?\s*CONFIG_ESP_SYSTEM_GDBSTUB_RUNTIME\s*\|\|\s*CONFIG_ESP_GDBSTUB_SUPPORT_TASKS\s*\)?"
+          )
+          if helper_guard.search(source):
+              source = helper_guard.sub("#if 1", source)
+              gdbstub.write_text(source, encoding="utf-8")
+
+          if os.environ["IDF_TARGET"] in {"esp32", "esp32s2", "esp32s3"}:
+              xtensa = idf / "components/esp_gdbstub/src/port/xtensa/gdbstub_xtensa.c"
+              source = xtensa.read_text(encoding="utf-8")
+              source = source.replace("portNUM_PROCESSORS", "CONFIG_FREERTOS_NUMBER_OF_CORES")
+              source, tcb_count = re.subn(
+                  r"const\s+StaticTask_t\s*\*\s*tcb\s*;",
+                  "void *tcb = NULL;",
+                  source,
+              )
+              source, lookup_count = re.subn(
+                  r"tcb\s*=\s*esp_gdbstub_find_tcb_by_frame\s*\(frame\)\s*;",
+                  "",
+                  source,
+              )
+              source, call_count = re.subn(
+                  r"#if\s+(?:XCHAL_HAVE_FP|0)\s+(?=gdbstub_write_fpu_regs\s*\()",
+                  "#if 0\n    ",
+                  source,
+              )
+              if tcb_count != lookup_count or tcb_count not in {0, 1}:
+                  raise SystemExit(
+                      f"unexpected Xtensa FPU patch counts: tcb={tcb_count}, lookup={lookup_count}"
+                  )
+              xtensa.write_text(source, encoding="utf-8")
+          PY
+
+      - name: Build firmware
+        env:
+          IDF_PATH: /home/runner/esp-idf
+        run: |
+          chmod +x scripts/build.sh scripts/flash-app.sh scripts/flash-merged.sh
+          ./scripts/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: esp32s3-bsod-dongle
+          path: esp32s3-bsod-dongle.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true)
+    runs-on: ubuntu-latest
+    env:
+      PAYLOAD_URL: ${{ inputs.payload_url || vars.PAYLOAD_URL || 'https://ghost-esp-demo.vercel.app/' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: esp32s3-bsod-dongle
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v$(date +%Y.%m.%d)-${GITHUB_SHA::7}"
+          fi
+          cat > release_notes.md <<EOF
+          ESP32-S3 BadUSB BSOD dongle demo.
+
+          - Payload URL: ${PAYLOAD_URL}
+          - Upstream: GhostESP @ ${GHOSTESP_COMMIT}
+          - Built with ESP-IDF 6.1 on GitHub Actions.
+          - App-only image: flash at 0x10000 on the MicroPython/Boya layout.
+          - Standard S3: flash merged.bin at 0x0.
+
+          Unofficial demo, not affiliated with GhostESP. Use only on your own devices or with written permission. It opens a browser page and does not modify the system. Auto-runs on every boot; unplug when not in use.
+
+          License: GPL-3.0. Complete source: this repository plus the upstream commit and patches/0001-badusb-autorun.patch. See NOTICE.
+          EOF
+          gh release create "$TAG" esp32s3-bsod-dongle.zip \
+            --title "ESP32-S3 BSOD dongle $TAG" \
+            --notes-file release_notes.md

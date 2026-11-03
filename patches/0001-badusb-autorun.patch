@@ -1,0 +1,99 @@
+diff --git a/include/managers/badusb_manager.h b/include/managers/badusb_manager.h
+index fa343df..1244345 100644
+--- a/include/managers/badusb_manager.h
++++ b/include/managers/badusb_manager.h
+@@ -14,6 +14,7 @@ esp_err_t badusb_manager_start(void);
+ esp_err_t badusb_manager_stop(void);
+ esp_err_t badusb_manager_execute_file(const char *path);
+ esp_err_t badusb_manager_execute_buffer(char *buf, size_t len);
++esp_err_t badusb_manager_autorun(void);
+ bool badusb_manager_is_active(void);
+ // Returns true when the active TinyUSB device is enumerated by a USB host.
+ bool badusb_manager_is_usb_mounted(void);
+diff --git a/main/Kconfig.projbuild b/main/Kconfig.projbuild
+index bf916fc..d6cbe3a 100644
+--- a/main/Kconfig.projbuild
++++ b/main/Kconfig.projbuild
+@@ -553,6 +553,23 @@ menu "Ghost ESP Options"
+                 allowing you to plug in the device after selecting a payload.
+                 Set to -1 to disable and execute immediately.
+ 
++        config BADUSB_AUTORUN
++            bool "Auto-run a BadUSB payload at boot"
++            default n
++            depends on HAS_BADUSB
++            help
++                At boot, start USB HID keyboard mode and type the configured
++                command into the host's Run dialog (Win+R). Intended for a
++                dedicated demo dongle; the payload runs once per boot.
++
++        config BADUSB_AUTORUN_COMMAND
++            string "Command typed by BadUSB autorun"
++            depends on BADUSB_AUTORUN
++            default ""
++            help
++                Command typed after Win+R. Example:
++                msedge --kiosk file:///C:/path/to/page.html
++
+         config HAS_BADUSB_REMOTE
+             bool "Enable BadUSB Remote (display menu only, routes via GhostLink)"
+             default n
+diff --git a/main/main.c b/main/main.c
+index f91a192..5adaf1a 100644
+--- a/main/main.c
++++ b/main/main.c
+@@ -1035,6 +1035,9 @@ void app_main(void) {
+     ghostlink_bench_init();
+ #ifdef CONFIG_HAS_BADUSB
+     badusb_manager_register_stream_handler();
++#if defined(CONFIG_BADUSB_AUTORUN) && CONFIG_BADUSB_AUTORUN
++    badusb_manager_autorun();
++#endif
+ #endif
+ #ifdef CONFIG_BUILD_CONFIG_TEMPLATE
+     if (strcmp(CONFIG_BUILD_CONFIG_TEMPLATE, "somethingsomething") == 0) {
+diff --git a/main/managers/badusb_manager.c b/main/managers/badusb_manager.c
+index a3120aa..ee84c41 100644
+--- a/main/managers/badusb_manager.c
++++ b/main/managers/badusb_manager.c
+@@ -999,6 +999,40 @@ esp_err_t badusb_manager_execute_buffer(char *buf, size_t len) {
+     return ESP_OK;
+ }
+ 
++esp_err_t badusb_manager_autorun(void) {
++#if defined(CONFIG_BADUSB_AUTORUN) && CONFIG_BADUSB_AUTORUN
++    const char *command = CONFIG_BADUSB_AUTORUN_COMMAND;
++    if (!command || command[0] == '\0') {
++        glog("BadUSB: Autorun command is empty\n");
++        return ESP_ERR_INVALID_ARG;
++    }
++
++    char script[512];
++    int len = snprintf(script, sizeof(script),
++                       "DELAY 4000\n"
++                       "GUI r\n"
++                       "DELAY 6000\n"
++                       "GUI r\n"
++                       "DELAY 2000\n"
++                       "STRING %s\n"
++                       "DELAY 500\n"
++                       "ENTER\n",
++                       command);
++    if (len <= 0 || len >= (int)sizeof(script)) {
++        glog("BadUSB: Autorun command too long\n");
++        return ESP_ERR_INVALID_SIZE;
++    }
++
++    char *buf = strdup(script);
++    if (!buf) return ESP_ERR_NO_MEM;
++
++    glog("BadUSB: Autorun starting\n");
++    return badusb_manager_execute_buffer(buf, (size_t)len);
++#else
++    return ESP_ERR_NOT_SUPPORTED;
++#endif
++}
++
+ static void badusb_stream_rx_cb(uint8_t channel, const uint8_t *data, size_t length, void *user_data) {
+     (void)channel;
+     (void)user_data;

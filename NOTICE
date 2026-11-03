@@ -1,0 +1,25 @@
+This repository is an unofficial demo based on GhostESP.
+
+Upstream project: https://github.com/GhostESP-Revival/GhostESP
+Pinned upstream commit: 4f4e1cfe97a37b69f8bc20a5f4b028c1b028aa0f
+License: GNU General Public License v3.0 (see LICENSE)
+
+The patch in patches/0001-badusb-autorun.patch modifies these upstream files:
+
+  main/Kconfig.projbuild
+  include/managers/badusb_manager.h
+  main/main.c
+  main/managers/badusb_manager.c
+
+Complete corresponding source for the released firmware is the upstream source at
+the pinned commit plus the patch above, together with this repository's build
+config and build script. The CI release notes link to both.
+
+The names "GhostESP" and any associated artwork are the property of their
+respective owners. This repository is not produced, endorsed, or supported by
+the GhostESP project and does not use its logo. It is a small third-party demo
+patch.
+
+The demo page in web/index.html contains only fictional terminal text and
+documentation-range IP addresses (192.0.2.0/24). It is not a real exploit or a
+real Windows crash.

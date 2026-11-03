@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body { cursor: none; user-select: none; }
+
+  #matrix {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    opacity: .55; z-index: 0;
+  }
+
+  #term {
+    position: fixed; inset: 0; z-index: 2;
+    padding: 4.5vh 5vw;
+    font-family: "Cascadia Mono", "Consolas", "Lucida Console", monospace;
+    font-size: clamp(12px, 1.45vh, 20px);
+    line-height: 1.55;
+    color: #7dff9b;
+    text-shadow: 0 0 6px rgba(70, 255, 130, .55);
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 50% 45%, rgba(0,25,8,.55), rgba(0,0,0,.92) 78%);
+  }
+  #term .head {
+    color: #d8ffe2;
+    letter-spacing: .12em;
+    border-bottom: 1px solid rgba(80,255,140,.35);
+    padding-bottom: .5em;
+    margin-bottom: 1.1em;
+    display: flex;
+    justify-content: space-between;
+    white-space: pre;
+  }
+  #term .head .blink { animation: blink 1s steps(1) infinite; }
+  #out div { white-space: pre-wrap; }
+  #out .ok   { color: #46ff8a; }
+  #out .warn { color: #ffd75e; }
+  #out .err  { color: #ff5b6e; }
+  #out .dim  { color: #4f9f68; }
+  #out .big  { color: #eafff0; font-weight: 700; letter-spacing: .18em; }
+  #cursor { display: inline-block; width: .62em; height: 1.05em; background: #7dff9b;
+            vertical-align: -0.16em; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #glitch {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none; display: none;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(90deg, rgba(0,255,140,.10) 0 3px, transparent 3px 41px);
+    mix-blend-mode: screen;
+    animation: glitch .11s steps(2) infinite;
+  }
+  @keyframes glitch {
+    0%   { transform: translate(0,0)   skewX(0deg); }
+    35%  { transform: translate(-14px,3px) skewX(2.2deg); }
+    60%  { transform: translate(11px,-4px) skewX(-1.7deg); }
+    100% { transform: translate(-3px,2px)  skewX(.4deg); }
+  }
+
+  #bsod {
+    position: fixed; inset: 0; z-index: 10; display: none;
+    background: #0078d7;
+    color: #fff;
+    font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    font-weight: 300;
+    padding: 9vh 8vw;
+    font-size: clamp(15px, 2.1vh, 26px);
+    line-height: 1.32;
+  }
+  #bsod .face { font-size: clamp(58px, 12vh, 150px); font-weight: 200; line-height: 1; margin-bottom: 4.2vh; }
+  #bsod .main { max-width: 980px; }
+  #bsod p { margin-bottom: 2.6vh; }
+  #bsod .pct { margin: 3.4vh 0 3.8vh; }
+  #bsod .small { font-size: .68em; line-height: 1.45; }
+  #bsod .small a { color: #fff; }
+  #bsod .stop { margin-top: 3.2vh; font-size: .8em; }
+  #bsod .stop b { font-weight: 600; }
+  #qrwrap {
+    position: fixed; right: 7vw; bottom: 9vh;
+    width: clamp(88px, 15vh, 170px); height: clamp(88px, 15vh, 170px);
+    background: #fff; padding: 8px; border-radius: 2px;
+  }
+  #qr { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+  #hint {
+    position: fixed; left: 50%; bottom: 1.6vh; transform: translateX(-50%);
+    z-index: 12; display: none;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 12px; letter-spacing: .08em;
+    color: rgba(255,255,255,.38);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<canvas id="matrix"></canvas>
+
+<div id="term">
+  <div class="head"><span>GHOSTSEC // REMOTE CONSOLE</span><span class="blink">● LIVE</span></div>
+  <div id="out"></div>
+  <div><span id="cursor"></span></div>
+</div>
+
+<div id="glitch"></div>
+
+<div id="bsod">
+  <div class="face">:(</div>
+  <div class="main">
+    <p>Your device ran into a problem and needs to restart.
+       We're just collecting some error info, and then we'll restart for you.</p>
+    <p class="pct"><span id="pct">0</span>% complete</p>
+    <p class="small">For more information about this issue and possible fixes, visit
+       https://www.windows.com/stopcode</p>
+    <p class="small">If you call a support person, give them this info:</p>
+    <p class="stop">Stop code: <b>CRITICAL_PROCESS_DIED</b></p>
+  </div>
+  <div id="qrwrap"><canvas id="qr" width="25" height="25"></canvas></div>
+</div>
+
+<div id="hint">BSOD DEMO — Alt+F4 to exit</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- matrix rain ----------
+  var cv = document.getElementById("matrix");
+  var ctx = cv.getContext("2d");
+  var glyphs = "アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF<>/\\|=+*".split("");
+  var cols = 0, drops = [], fs = 18;
+
+  function sizeCanvas() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.floor(innerWidth * dpr);
+    cv.height = Math.floor(innerHeight * dpr);
+    cv.style.width = innerWidth + "px";
+    cv.style.height = innerHeight + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fs = Math.max(14, Math.round(innerHeight / 48));
+    cols = Math.ceil(innerWidth / fs);
+    drops = [];
+    for (var i = 0; i < cols; i++) drops.push(Math.random() * -60);
+  }
+  sizeCanvas();
+  addEventListener("resize", sizeCanvas);
+
+  var rainTimer = setInterval(function () {
+    ctx.fillStyle = "rgba(0,0,0,.075)";
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+    ctx.font = fs + "px Consolas, monospace";
+    for (var i = 0; i < cols; i++) {
+      var ch = glyphs[(Math.random() * glyphs.length) | 0];
+      var x = i * fs, y = drops[i] * fs;
+      ctx.fillStyle = Math.random() < 0.04 ? "#d9ffe4" : "#1fd45f";
+      ctx.fillText(ch, x, y);
+      if (y > innerHeight && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+  }, 55);
+
+  // ---------- fake terminal ----------
+  var out = document.getElementById("out");
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function addLine(text, cls) {
+    var d = document.createElement("div");
+    if (cls) d.className = cls;
+    d.innerHTML = esc(text);
+    out.appendChild(d);
+    if (out.children.length > 140) out.removeChild(out.firstChild);
+  }
+
+  var stamp = function () {
+    var d = new Date();
+    return d.toTimeString().slice(0, 8);
+  };
+
+  var script = [
+    ["[*] initializing ghost protocol v3.7.2 ...", "dim"],
+    ["[+] uplink established ................ OK", "ok"],
+    ["[+] adapter: HID composite / 3 interfaces", "dim"],
+    ["[+] target host: 192.0.2.42", ""],
+    ["[+] loading modules: ghost | karma | portal | hid", "dim"],
+    ["[+] enumerating local subnet 192.0.2.0/24", ""],
+    ["[+] 192.0.2.1    gateway       ports 53,80,443", "ok"],
+    ["[+] 192.0.2.77   workstation   ports 135,445,3389", "ok"],
+    ["[!] session token acquired .............. 0xDEADBEEF", "warn"],
+    ["[+] escalating privileges ................ 100%", "ok"],
+    ["[!] kernel access ....................... GRANTED", "warn"],
+    ["[>] staging payload ..................... 100%", "ok"],
+    ["[>] remote shell ........................ ACTIVE", "big"],
+    ["[!] countermeasures detected, deploying glitch", "err"]
+  ];
+
+  var i = 0;
+  function nextLine() {
+    if (i >= script.length) {
+      setTimeout(function () {
+        document.getElementById("glitch").style.display = "block";
+        setTimeout(bootBsod, 750);
+      }, 1400);
+      return;
+    }
+    var row = script[i++];
+    addLine("[" + stamp() + "] " + row[0], row[1]);
+    setTimeout(nextLine, 220 + Math.random() * 300);
+  }
+  setTimeout(nextLine, 500);
+
+  // glitch flashes during terminal
+  setInterval(function () {
+    if (document.getElementById("bsod").style.display === "block") return;
+    var g = document.getElementById("glitch");
+    g.style.display = "block";
+    setTimeout(function () { g.style.display = "none"; }, 55 + Math.random() * 70);
+  }, 2600);
+
+  // ---------- fake QR ----------
+  function drawQr() {
+    var q = document.getElementById("qr");
+    var g = q.getContext("2d");
+    var n = 25;
+    g.fillStyle = "#fff";
+    g.fillRect(0, 0, n, n);
+    g.fillStyle = "#000";
+    for (var y = 0; y < n; y++) {
+      for (var x = 0; x < n; x++) {
+        var inFinder =
+          (x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8);
+        if (inFinder) continue;
+        if (Math.random() < 0.47) g.fillRect(x, y, 1, 1);
+      }
+    }
+    function finder(fx, fy) {
+      g.fillStyle = "#000"; g.fillRect(fx, fy, 7, 7);
+      g.fillStyle = "#fff"; g.fillRect(fx + 1, fy + 1, 5, 5);
+      g.fillStyle = "#000"; g.fillRect(fx + 2, fy + 2, 3, 3);
+    }
+    finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+  }
+
+  // ---------- BSOD ----------
+  var pctEl = document.getElementById("pct");
+  var pct = 0;
+  var bsodTimer = null;
+
+  function bootBsod() {
+    clearInterval(rainTimer);
+    document.getElementById("glitch").style.display = "none";
+    document.getElementById("term").style.display = "none";
+    document.getElementById("bsod").style.display = "block";
+    drawQr();
+    bsodTimer = setInterval(function () {
+      if (pct >= 100) {
+        clearInterval(bsodTimer);
+        setTimeout(function () {
+          document.getElementById("hint").style.display = "block";
+        }, 9000);
+        return;
+      }
+      pct += Math.random() < 0.35 ? 0 : (Math.random() < 0.85 ? 1 : 2);
+      if (pct > 100) pct = 100;
+      pctEl.textContent = pct;
+    }, 480);
+  }
+})();
+</script>
+</body>
+</html>
