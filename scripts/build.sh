@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PAYLOAD_URL="${PAYLOAD_URL:-https://ghost-esp-demo.vercel.app/}"
+PAYLOAD_URL="${PAYLOAD_URL:-https://hack.sixiangjia.de/}"
 GHOSTESP_REPO="${GHOSTESP_REPO:-https://github.com/GhostESP-Revival/GhostESP.git}"
 GHOSTESP_COMMIT="${GHOSTESP_COMMIT:-4f4e1cfe97a37b69f8bc20a5f4b028c1b028aa0f}"
 WORK="${WORK:-$ROOT/.work}"

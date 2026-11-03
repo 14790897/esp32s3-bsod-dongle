@@ -13,7 +13,7 @@ An ESP32-S3 BadUSB demo dongle that opens a full-screen fake hacker terminal / f
   ```
 
 - Edge opens the demo page full-screen: about 8 seconds of a fake hacker terminal, then a fake Windows 11 BSOD. Press **Alt+F4** to leave.
-- The default demo page is <https://ghost-esp-demo.vercel.app/>. It is a visual simulation, not a real crash. It needs internet access; Edge must be installed.
+- The default demo page is <https://hack.sixiangjia.de/>. It is a visual simulation, not a real crash. It needs internet access; Edge must be installed.
 - It runs on every power-up. Keep the dongle unplugged when you are not using it.
 
 ## Download
@@ -80,7 +80,7 @@ The script clones GhostESP at the pinned upstream commit, applies `patches/0001-
 The GitHub Actions workflow builds on every push to `main`, on `v*` tags, and on manual dispatch. A tag (or a manual run with `release=true`) publishes a GitHub Release with the zip.
 
 - `PAYLOAD_URL` can be set as a repository variable (Settings → Variables → Actions) or supplied as a manual-dispatch input.
-- To use a custom domain, set the variable to e.g. `https://your.domain/` and run the workflow with `release=true`, or push a new tag.
+- The default payload is `https://hack.sixiangjia.de/`. Set `PAYLOAD_URL` to another URL if you self-host the page.
 - The build uses ESP-IDF v6.1 and the same `scripts/build.sh` as local builds.
 
 ## Change the payload
