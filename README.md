@@ -106,9 +106,12 @@ DELAY 300
 STRING msedge --kiosk <PAYLOAD_URL>
 DELAY 200
 ENTER
+DELAY 500
+CTRL SPACE
+SHIFT
 ```
 
-The 3-second delay gives Windows time to bind the HID keyboard; a single `Win+R` then opens the Run dialog and the command is typed about 0.5 s later. If the target uses a Chinese IME, the script sends `Shift` then `Ctrl+Space` after opening Run: on a fresh Chinese Windows this switches to English; on an English system without a Chinese IME the keystrokes are harmless; on a Chinese IME already in English mode, Shift selects Chinese and Ctrl+Space turns the IME off. This does not require a separate English keyboard or any Run history. The config also raises `CONFIG_TINYUSB_HID_COUNT` to 3 (keyboard, mouse, consumer) and disables the USB Serial/JTAG secondary console so the native USB is available to TinyUSB HID.
+The 3-second delay gives Windows time to bind the HID keyboard; a single `Win+R` then opens the Run dialog and the command is typed about 0.5 s later. If the target uses a Chinese IME, the script sends `Shift` then `Ctrl+Space` after opening Run: on a fresh Chinese Windows this switches to English; on an English system without a Chinese IME the keystrokes are harmless; on a Chinese IME already in English mode, Shift selects Chinese and Ctrl+Space turns the IME off. This does not require a separate English keyboard or any Run history. After the command it sends `Ctrl+Space` then `Shift` in reverse to restore the previous IME state. The config also raises `CONFIG_TINYUSB_HID_COUNT` to 3 (keyboard, mouse, consumer) and disables the USB Serial/JTAG secondary console so the native USB is available to TinyUSB HID.
 
 ## Safety and authorized use
 

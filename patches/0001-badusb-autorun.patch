@@ -53,10 +53,10 @@ index f91a192..5adaf1a 100644
  #ifdef CONFIG_BUILD_CONFIG_TEMPLATE
      if (strcmp(CONFIG_BUILD_CONFIG_TEMPLATE, "somethingsomething") == 0) {
 diff --git a/main/managers/badusb_manager.c b/main/managers/badusb_manager.c
-index a3120aa..cceeca5 100644
+index a3120aa..c8ce737 100644
 --- a/main/managers/badusb_manager.c
 +++ b/main/managers/badusb_manager.c
-@@ -999,6 +999,41 @@ esp_err_t badusb_manager_execute_buffer(char *buf, size_t len) {
+@@ -999,6 +999,44 @@ esp_err_t badusb_manager_execute_buffer(char *buf, size_t len) {
      return ESP_OK;
  }
  
@@ -78,7 +78,10 @@ index a3120aa..cceeca5 100644
 +                       "DELAY 300\n"
 +                       "STRING %s\n"
 +                       "DELAY 200\n"
-+                       "ENTER\n",
++                       "ENTER\n"
++                       "DELAY 500\n"
++                       "CTRL SPACE\n"
++                       "SHIFT\n",
 +                       command);
 +    if (len <= 0 || len >= (int)sizeof(script)) {
 +        glog("BadUSB: Autorun command too long\n");
